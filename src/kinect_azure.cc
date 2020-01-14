@@ -513,6 +513,38 @@ Napi::Value MethodStartListening(const Napi::CallbackInfo& info) {
   return Napi::Boolean::New(env, true);
 }
 
+Napi::Value Depth2DToDepth3D(const Napi::CallbackInfo& info) {
+	Napi::Env env = info.Env();
+	auto queryDepth2DCoords = info[0].As<Napi::Object>();
+
+	float x = queryDepth2DCoords.Get("x").As<Napi::Number>().FloatValue();
+	float y = queryDepth2DCoords.Get("y").As<Napi::Number>().FloatValue();
+	float z = queryDepth2DCoords.Get("z").As<Napi::Number>().FloatValue();
+
+	k4a_float2_t point2d = k4a_float2_t();
+	point2d.xy.x = x;
+	point2d.xy.y = y;
+	k4a_float3_t point3d;
+	int valid;
+
+	k4a_calibration_2d_to_3d(&g_calibration, &point2d, z, K4A_CALIBRATION_TYPE_DEPTH, K4A_CALIBRATION_TYPE_DEPTH, &point3d, &valid);
+
+	auto result = Napi::Object::New(env);
+	if (valid)
+	{
+		result.Set("x", Napi::Number::New(env, point3d.xyz.x));
+		result.Set("y", Napi::Number::New(env, point3d.xyz.y));
+		result.Set("z", Napi::Number::New(env, point3d.xyz.z));
+	}
+	else {
+		result.Set("x", Napi::Number::New(env, 0));
+		result.Set("y", Napi::Number::New(env, 0));
+		result.Set("z", Napi::Number::New(env, 0));
+	}
+
+	return result;
+}
+
 Napi::Value MethodStopListening(const Napi::CallbackInfo& info) {
   Napi::Env env = info.Env();
   if (!is_listening) {
@@ -538,6 +570,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     Napi::Function::New(env, MethodStartCameras));
   exports.Set(Napi::String::New(env, "stopCameras"),
     Napi::Function::New(env, MethodStopCameras));
+	exports.Set(Napi::String::New(env, "depth2DtoDepth3D"),
+		Napi::Function::New(env, Depth2DToDepth3D));
   #ifdef KINECT_AZURE_ENABLE_BODY_TRACKING
   exports.Set(Napi::String::New(env, "createTracker"),
     Napi::Function::New(env, MethodCreateTracker));
